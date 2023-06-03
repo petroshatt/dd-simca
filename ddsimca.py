@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+from sklearn.preprocessing import MinMaxScaler
 from scipy.stats.distributions import chi2
 
 
@@ -30,6 +31,14 @@ class DDSimca:
         self.training_set = None
         self.training_set_mean = None
         self.training_set_std = None
+
+    def preprocessing(self, X, centering=True, scaling=True):
+        self.training_set = X
+        if centering:
+            X = X.apply(lambda x: x-x.mean())
+        # if scaling:
+            # X = (X - X.min()) / (X.max() - X.min())
+        return X
 
     def fit(self, X):
         self.training_set = X
