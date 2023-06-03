@@ -15,16 +15,25 @@ class DDSimca:
         self.outlier_objs = None
         self.scores = None
         self.loadings = None
+        self.eigenmatrix = None
+        self.od_mean = None
+        self.sd_mean = None
         self.dof_od = None
         self.dof_sd = None
         self.alpha = alpha
         self.gamma = gamma
+        self.od_crit = None
+        self.sd_crit = None
+        self.od_out = None
+        self.sd_out = None
         self.training_set = None
         self.training_set_mean = None
         self.training_set_std = None
 
     def fit(self, X):
         self.training_set = X
+        n, _ = X.shape
+
         D, P = self.decomp()
 
         sd_vector = self.calculate_sd(P[:, 0:self.n_comps], D)
@@ -36,9 +45,28 @@ class DDSimca:
         norm_sd_vector = np.divide(sd_vector, av_sd)
         norm_od_vector = np.divide(od_vector, av_od)
 
-        sd_crit, od_crit = self.calulate_border(dof_sd, dof_od)
+        sd_crit, od_crit = self.calulate_border(dof_sd, dof_od, self.alpha)
         extr_vector = self.find_extremes(norm_sd_vector, norm_od_vector, sd_crit, od_crit)
 
+        alpha_out = 1 - ((1 - self.gamma) ** (1 / n))
+        sd_out, od_out = self.calulate_border(dof_sd, dof_od, alpha_out)
+        out_vector = self.find_extremes(norm_sd_vector, norm_od_vector, sd_out, od_out)
+
+        self.loadings = P[:, 0:self.n_comps]
+        self.scores = X @ self.loadings
+        self.eigenmatrix = D
+        self.od_mean = av_od
+        self.sd_mean = av_sd
+        self.dof_od = dof_od
+        self.dof_sd = dof_sd
+        self.od_crit = od_crit
+        self.sd_crit = sd_crit
+        self.od_out = od_out
+        self.sd_out = sd_out
+        self.od = od_vector
+        self.sd = sd_vector
+        self.extreme_objs = extr_vector
+        self.outlier_objs = out_vector
 
     def decomp(self):
         X = self.training_set
@@ -79,8 +107,8 @@ class DDSimca:
         dof = round(2 * (av/np.std(v)) ** 2)
         return dof, av
 
-    def calulate_border(self, dof_sd, dof_od):
-        d_crit = chi2.ppf(1 - self.alpha, dof_sd + dof_od)
+    def calulate_border(self, dof_sd, dof_od, error):
+        d_crit = chi2.ppf(1 - error, dof_sd + dof_od)
         sd_crit = d_crit / dof_sd
         od_crit = d_crit / dof_od
         return sd_crit, od_crit
