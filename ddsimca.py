@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scipy.stats.distributions import chi2
+
 
 class DDSimca:
 
@@ -30,6 +32,12 @@ class DDSimca:
 
         dof_sd, av_sd = self.calculate_dof(sd_vector)
         dof_od, av_od = self.calculate_dof(od_vector)
+
+        norm_sd_vector = np.divide(sd_vector, av_sd)
+        norm_od_vector = np.divide(od_vector, av_od)
+
+        sd_crit, od_crit = self.calulate_border(dof_sd, dof_od)
+        extr_vector = self.find_extremes(norm_sd_vector, norm_od_vector, sd_crit, od_crit)
 
 
     def decomp(self):
@@ -70,4 +78,19 @@ class DDSimca:
         av = np.mean(v)
         dof = round(2 * (av/np.std(v)) ** 2)
         return dof, av
+
+    def calulate_border(self, dof_sd, dof_od):
+        d_crit = chi2.ppf(1 - self.alpha, dof_sd + dof_od)
+        sd_crit = d_crit / dof_sd
+        od_crit = d_crit / dof_od
+        return sd_crit, od_crit
+
+    def find_extremes(self, norm_sd_vector, norm_od_vector, sd_crit, od_crit):
+        n = len(norm_od_vector)
+        od_cur = [0 for _ in range(n)]
+        extr_vector = [False for _ in range(n)]
+        for i in range(n):
+            od_cur[i] = od_crit * (1 - norm_sd_vector[i] / sd_crit)
+            extr_vector[i] = (norm_sd_vector[i] > sd_crit) | (norm_od_vector[i] > od_cur[i])
+        return extr_vector
 
