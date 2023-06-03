@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 from scipy.stats.distributions import chi2
 
@@ -104,7 +105,7 @@ class DDSimca:
 
     def calculate_dof(self, v):
         av = np.mean(v)
-        dof = round(2 * (av/np.std(v)) ** 2)
+        dof = round(2 * (av / np.std(v)) ** 2)
         return dof, av
 
     def calulate_border(self, dof_sd, dof_od, error):
@@ -122,3 +123,59 @@ class DDSimca:
             extr_vector[i] = (norm_sd_vector[i] > sd_crit) | (norm_od_vector[i] > od_cur[i])
         return extr_vector
 
+    def acceptance_plot(self):
+        plt.title("Acceptance Plot")
+        plt.xlabel("log(1 + h/h_0)")
+        plt.ylabel("log(1 + v/v_0)")
+
+        x, y = self.border_plot(self.sd_crit, self.od_crit)
+        plt.plot(x, y, 'g')
+        x, y = self.border_plot(self.sd_out, self.od_out)
+        plt.plot(x, y, 'r')
+
+        oD = [0 for _ in range(len(self.od))]
+        sD = [0 for _ in range(len(self.sd))]
+
+        for i in range(len(self.od)):
+            oD[i] = self.transform_(self.od[i] / self.od_mean)
+        for i in range(len(self.sd)):
+            sD[i] = self.transform_(self.sd[i] / self.sd_mean)
+
+        for i in range(len(self.extreme_objs)):
+            if (not self.extreme_objs[i]) and (not self.outlier_objs[i]):
+                plt.plot(sD[i], oD[i], "o", color='lime', label='Regular')
+            elif not self.outlier_objs[i]:
+                plt.plot(sD[i], oD[i], 'ro', label='Extreme')
+            elif not self.extreme_objs[i]:
+                plt.plot(sD[i], oD[i], 'rs', label='Outlier')
+            plt.annotate(str(i+1), (sD[i], oD[i]))
+
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys())
+
+        plt.show()
+
+    def border_plot(self, sd_crit, od_crit):
+        x = np.linspace(0, self.transform_(sd_crit), num=100)
+        n = len(x)
+        y = [0 for _ in range(n)]
+
+        for k in range(n):
+            if x[k] > self.transform_(sd_crit) or x[k] < 0:
+                y[k] = 0
+            else:
+                y[k] = od_crit / sd_crit * (sd_crit - self.transform_reverse(x[k]))
+                if y[k] < 0:
+                    y[k] = 0
+
+        for j in range(len(y)):
+            y[j] = self.transform_(y[j])
+
+        return x, y
+
+    def transform_(self, input):
+        return math.log(1 + input)
+
+    def transform_reverse(self, input):
+        return math.exp(input) - 1

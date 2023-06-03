@@ -10,5 +10,5 @@ if __name__ == '__main__':
 
     ddsimca = DDSimca()
     ddsimca.fit(X)
-
+    ddsimca.acceptance_plot()
 
