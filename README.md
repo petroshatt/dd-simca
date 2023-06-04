@@ -1,7 +1,10 @@
 DD-SIMCA
 ===========================================
 
-Original version:
+Data-Driven SIMCA implementation in Python, part of my thesis
+on Machine Learning and Chemometrics Algorithms for Spectral Data.
+
+Reference:
 
 Y.V. Zontov, O.Ye. Rodionova, S.V. Kucheryavskiy, A.L. Pomerantsev,
 DD-SIMCA – A MATLAB GUI tool for data driven SIMCA approach, Chemometrics and Intelligent Laboratory Systems, Volume 167, 2017,
