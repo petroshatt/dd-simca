@@ -31,13 +31,21 @@ class DDSimca:
         self.training_set = None
         self.training_set_mean = None
         self.training_set_std = None
+        self.test_set = None
+        self.test_set_mean = None
+        self.test_set_std = None
+        self.od_test = None
+        self.sd_test = None
+        self.external_objs_test = None
 
     def preprocessing(self, X, centering=True, scaling=True):
         self.training_set = X
         if centering:
             X = X.apply(lambda x: x-x.mean())
-        # if scaling:
-            # X = (X - X.min()) / (X.max() - X.min())
+        if scaling:
+            temp = np.std(X)
+            X = np.subtract(X, np.mean(X))
+            X = np.divide(X, temp)
         return X
 
     def fit(self, X):
@@ -46,8 +54,8 @@ class DDSimca:
 
         D, P = self.decomp()
 
-        sd_vector = self.calculate_sd(P[:, 0:self.n_comps], D)
-        od_vector = self.calculate_od(P[:, 0:self.n_comps])
+        sd_vector = self.calculate_sd(self.training_set, P[:, 0:self.n_comps], D)
+        od_vector = self.calculate_od(self.training_set, P[:, 0:self.n_comps])
 
         dof_sd, av_sd = self.calculate_dof(sd_vector)
         dof_od, av_od = self.calculate_dof(od_vector)
@@ -86,8 +94,8 @@ class DDSimca:
         P = np.transpose(P)
         return D, P
 
-    def calculate_sd(self, P, D):
-        X = self.training_set
+    def calculate_sd(self, x, P, D):
+        X = x
         n = len(X.index)
         T = X @ P
         v_lambda = D.diagonal()
@@ -101,8 +109,8 @@ class DDSimca:
                 v_sd[i] += v_work[i][j] ** 2
         return v_sd
 
-    def calculate_od(self, P):
-        X = self.training_set
+    def calculate_od(self, x, P):
+        X = x
         n, p = X.shape
         E = X @ (np.eye(p, p) - (P @ np.transpose(P)))
         v_od = [0 for _ in range(n)]
@@ -133,7 +141,7 @@ class DDSimca:
         return extr_vector
 
     def acceptance_plot(self):
-        plt.title("Acceptance Plot")
+        plt.title("Acceptance Plot - Training Set")
         plt.xlabel("log(1 + h/h_0)")
         plt.ylabel("log(1 + v/v_0)")
 
@@ -188,3 +196,46 @@ class DDSimca:
 
     def transform_reverse(self, input):
         return math.exp(input) - 1
+
+    def predict(self, Xtest):
+        self.test_set = Xtest
+        sd_vector_pred = self.calculate_sd(self.test_set, self.loadings, self.eigenmatrix)
+        od_vector_pred = self.calculate_od(self.test_set, self.loadings)
+
+        norm_sd_vector = np.divide(sd_vector_pred, self.sd_mean)
+        norm_od_vector = np.divide(od_vector_pred, self.od_mean)
+
+        extr_vector_pred = self.find_extremes(norm_sd_vector, norm_od_vector, self.sd_crit, self.od_crit)
+
+        self.sd_test = sd_vector_pred
+        self.od_test = od_vector_pred
+        self.external_objs_test = extr_vector_pred
+
+    def pred_acceptance_plot(self):
+        plt.title("Acceptance Plot - Test Set")
+        plt.xlabel("log(1 + h/h_0)")
+        plt.ylabel("log(1 + v/v_0)")
+
+        x, y = self.border_plot(self.sd_crit, self.od_crit)
+        plt.plot(x, y, 'g')
+
+        oD = [0 for _ in range(len(self.od_test))]
+        sD = [0 for _ in range(len(self.sd_test))]
+
+        for i in range(len(self.od_test)):
+            oD[i] = self.transform_(self.od_test[i] / self.od_mean)
+        for i in range(len(self.sd_test)):
+            sD[i] = self.transform_(self.sd_test[i] / self.sd_mean)
+
+        for i in range(len(self.external_objs_test)):
+            if not self.external_objs_test[i]:
+                plt.plot(sD[i], oD[i], "o", color='lime', label='Regular')
+            else:
+                plt.plot(sD[i], oD[i], 'rs', label='Extreme')
+            plt.annotate(str(i+1), (sD[i], oD[i]))
+
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys())
+
+        plt.show()
