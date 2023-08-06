@@ -15,5 +15,5 @@ if __name__ == '__main__':
     ddsimca.acceptance_plot()
     ddsimca.predict(X_test)
     ddsimca.pred_acceptance_plot()
-    ddsimca.confusion_matrix(plot='off')
+    ddsimca.confusion_matrix()
 

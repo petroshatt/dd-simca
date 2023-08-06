@@ -270,7 +270,7 @@ class DDSimca:
 
         plt.show()
 
-    def confusion_matrix(self, plot='off'):
+    def confusion_matrix(self, plot_cm='off', print_metrics='on'):
         cm_pred = list(~np.array(self.external_objs_test))
         cm_actual = []
         for i in range(self.test_set_labels.shape[0]):
@@ -279,7 +279,7 @@ class DDSimca:
         self.conf_matrix = metrics.confusion_matrix(cm_actual, cm_pred)
         cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=self.conf_matrix, display_labels=[False, True])
 
-        if plot == 'on:':
+        if plot_cm == 'on:':
             cm_display.plot()
             plt.show()
 
@@ -289,3 +289,7 @@ class DDSimca:
         self.metrics_list.append(metrics.recall_score(cm_actual, cm_pred))
         self.metrics_list.append(metrics.recall_score(cm_actual, cm_pred, pos_label=0))
         self.metrics_list.append(metrics.f1_score(cm_actual, cm_pred))
+
+        if print_metrics == 'on':
+            print("Accuracy:", self.metrics_list[0], "\nPrecision:", self.metrics_list[1], "\nSensitivity Recall:", self.metrics_list[2],
+                   "\nSpecificity:", self.metrics_list[3], "\nF1_score:", self.metrics_list[4])
