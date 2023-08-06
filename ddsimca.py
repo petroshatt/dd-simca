@@ -5,6 +5,7 @@ import math
 
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats.distributions import chi2
+from sklearn import metrics
 
 
 class DDSimca:
@@ -29,14 +30,18 @@ class DDSimca:
         self.od_out = None
         self.sd_out = None
         self.training_set = None
+        self.target_class = None
         self.training_set_mean = None
         self.training_set_std = None
         self.test_set = None
+        self.test_set_labels = None
         self.test_set_mean = None
         self.test_set_std = None
         self.od_test = None
         self.sd_test = None
         self.external_objs_test = None
+        self.conf_matrix = None
+        self.metrics_list = None
 
     def preprocessing(self, X, centering=True, scaling=True):
         self.training_set = X
@@ -49,8 +54,9 @@ class DDSimca:
         return X
 
     def fit(self, X):
-        self.training_set = X
-        n, _ = X.shape
+        self.training_set = X.iloc[:, 1:]
+        self.target_class = X.iloc[0, 0]
+        n, _ = self.training_set.shape
 
         D, P = self.decomp()
 
@@ -71,7 +77,7 @@ class DDSimca:
         out_vector = self.find_extremes(norm_sd_vector, norm_od_vector, sd_out, od_out)
 
         self.loadings = P[:, 0:self.n_comps]
-        self.scores = X @ self.loadings
+        self.scores = self.training_set @ self.loadings
         self.eigenmatrix = D
         self.od_mean = av_od
         self.sd_mean = av_sd
@@ -173,6 +179,29 @@ class DDSimca:
 
         plt.show()
 
+    def extreme_plot(self):
+        oD = [0 for _ in range(len(self.od))]
+        sD = [0 for _ in range(len(self.sd))]
+        for i in range(len(self.od)):
+            oD[i] = self.od[i] / self.od_mean
+        for i in range(len(self.sd)):
+            sD[i] = self.sd[i] / self.sd_mean
+
+        Nh = self.dof_sd
+        Nv = self.dof_od
+
+        c = list(np.array([item * Nh for item in sD]) + np.array([item * Nv for item in oD]))
+        c.sort()
+        Nc = Nh + Nv
+        I = len(c)
+
+        n = list(range(1, I+1))
+        alpha = np.divide(n, I)
+
+        '''
+        TO-DO
+        '''
+
     def border_plot(self, sd_crit, od_crit):
         x = np.linspace(0, self.transform_(sd_crit), num=100)
         n = len(x)
@@ -198,7 +227,8 @@ class DDSimca:
         return math.exp(input) - 1
 
     def predict(self, Xtest):
-        self.test_set = Xtest
+        self.test_set = Xtest.iloc[:, 1:]
+        self.test_set_labels = Xtest.iloc[:, 0]
         sd_vector_pred = self.calculate_sd(self.test_set, self.loadings, self.eigenmatrix)
         od_vector_pred = self.calculate_od(self.test_set, self.loadings)
 
@@ -239,3 +269,23 @@ class DDSimca:
         plt.legend(by_label.values(), by_label.keys())
 
         plt.show()
+
+    def confusion_matrix(self, plot='off'):
+        cm_pred = list(~np.array(self.external_objs_test))
+        cm_actual = []
+        for i in range(self.test_set_labels.shape[0]):
+            cm_actual.append(self.target_class == self.test_set_labels.iloc[i])
+
+        self.conf_matrix = metrics.confusion_matrix(cm_actual, cm_pred)
+        cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=self.conf_matrix, display_labels=[False, True])
+
+        if plot == 'on:':
+            cm_display.plot()
+            plt.show()
+
+        self.metrics_list = []
+        self.metrics_list.append(metrics.accuracy_score(cm_actual, cm_pred))
+        self.metrics_list.append(metrics.precision_score(cm_actual, cm_pred))
+        self.metrics_list.append(metrics.recall_score(cm_actual, cm_pred))
+        self.metrics_list.append(metrics.recall_score(cm_actual, cm_pred, pos_label=0))
+        self.metrics_list.append(metrics.f1_score(cm_actual, cm_pred))
