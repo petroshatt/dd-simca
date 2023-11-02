@@ -4,8 +4,9 @@ import numpy as np
 import math
 
 from sklearn.preprocessing import MinMaxScaler
-from scipy.stats.distributions import chi2
+from sklearn.model_selection import train_test_split
 from sklearn import metrics
+from scipy.stats.distributions import chi2
 
 
 class DDSimca:
@@ -52,6 +53,20 @@ class DDSimca:
             X = np.subtract(X, np.mean(X))
             X = np.divide(X, temp)
         return X
+
+    def train_test_split(self, df, class_name, target_class, rand_state=41):
+        X_target_cl = df[df[class_name] == target_class]
+        y_target_cl = df[class_name][df[class_name] == target_class]
+
+        X_other_cl = df[~(df[class_name] == target_class)]
+        y_other_cl = df[class_name][~(df[class_name] == target_class)]
+
+        X_train, X_test_target_cl, _, _ = train_test_split(X_target_cl, y_target_cl, test_size=0.2,
+                                                          random_state=rand_state)
+        _, X_test_other_cl, _, _ = train_test_split(X_other_cl, y_other_cl, test_size=0.2, random_state=rand_state)
+        X_test = pd.concat([X_test_target_cl, X_test_other_cl])
+
+        return X_train, X_test
 
     def fit(self, X):
         self.training_set = X.iloc[:, 1:]
