@@ -61,12 +61,26 @@ class DDSimca:
         X_other_cl = df[~(df[class_name] == target_class)]
         y_other_cl = df[class_name][~(df[class_name] == target_class)]
 
-        X_train, X_test_target_cl, _, _ = train_test_split(X_target_cl, y_target_cl, test_size=0.2,
+        X_train, X_test_target_cl, y_train, y_test_target_cl = train_test_split(X_target_cl, y_target_cl, test_size=0.2,
                                                           random_state=rand_state)
-        _, X_test_other_cl, _, _ = train_test_split(X_other_cl, y_other_cl, test_size=0.2, random_state=rand_state)
+        _, X_test_other_cl, _, y_test_other_cl = train_test_split(X_other_cl, y_other_cl, test_size=0.2, random_state=rand_state)
         X_test = pd.concat([X_test_target_cl, X_test_other_cl])
+        y_test = pd.concat([y_test_target_cl, y_test_other_cl])
 
-        return X_train, X_test
+        return X_train, X_test, y_train, y_test
+
+    def export_csvs(self, X_train, X_test, y_train, y_test):
+        X_train.to_csv('X_train.csv')
+        X_test.to_csv('X_test.csv')
+        y_train.to_csv('y_train.csv')
+        y_test.to_csv('y_test.csv')
+
+        X_train.reset_index(drop=False, inplace=True)
+        X_train_names = X_train['Sample']
+        X_test.reset_index(drop=False, inplace=True)
+        X_test_names = X_test['Sample']
+        X_train_names.to_csv('X_train_names.csv')
+        X_test_names.to_csv('X_test_names.csv')
 
     def fit(self, X):
         self.training_set = X.iloc[:, 1:]
