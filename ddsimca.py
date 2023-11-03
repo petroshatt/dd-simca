@@ -1,5 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
+from bokeh.models import ColumnDataSource, LabelSet, HoverTool
+from bokeh.plotting import figure, show
 import numpy as np
 import math
 
@@ -7,6 +10,9 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from scipy.stats.distributions import chi2
+
+
+plots = []
 
 
 class DDSimca:
@@ -54,16 +60,15 @@ class DDSimca:
             X = np.divide(X, temp)
         return X
 
-    def train_test_split(self, df, class_name, target_class, rand_state=41):
+    def train_test_split(self, df, class_name, target_class):
         X_target_cl = df[df[class_name] == target_class]
         y_target_cl = df[class_name][df[class_name] == target_class]
 
         X_other_cl = df[~(df[class_name] == target_class)]
         y_other_cl = df[class_name][~(df[class_name] == target_class)]
 
-        X_train, X_test_target_cl, y_train, y_test_target_cl = train_test_split(X_target_cl, y_target_cl, test_size=0.2,
-                                                          random_state=rand_state)
-        _, X_test_other_cl, _, y_test_other_cl = train_test_split(X_other_cl, y_other_cl, test_size=0.2, random_state=rand_state)
+        X_train, X_test_target_cl, y_train, y_test_target_cl = train_test_split(X_target_cl, y_target_cl, test_size=0.2)
+        _, X_test_other_cl, _, y_test_other_cl = train_test_split(X_other_cl, y_other_cl, test_size=0.2)
         X_test = pd.concat([X_test_target_cl, X_test_other_cl])
         y_test = pd.concat([y_test_target_cl, y_test_other_cl])
 
@@ -176,15 +181,6 @@ class DDSimca:
         return extr_vector
 
     def acceptance_plot(self):
-        plt.title("Acceptance Plot - Training Set")
-        plt.xlabel("log(1 + h/h_0)")
-        plt.ylabel("log(1 + v/v_0)")
-
-        x, y = self.border_plot(self.sd_crit, self.od_crit)
-        plt.plot(x, y, 'g')
-        x, y = self.border_plot(self.sd_out, self.od_out)
-        plt.plot(x, y, 'r')
-
         oD = [0 for _ in range(len(self.od))]
         sD = [0 for _ in range(len(self.sd))]
 
@@ -193,20 +189,44 @@ class DDSimca:
         for i in range(len(self.sd)):
             sD[i] = self.transform_(self.sd[i] / self.sd_mean)
 
+        self.training_set.reset_index(drop=False, inplace=True)
+        training_set_names = list(self.training_set['Sample'])
+        self.training_set.set_index('Sample', inplace=True)
+
+        point_type_list = [None for _ in range(len(self.extreme_objs))]
+        color_list = [None for _ in range(len(self.extreme_objs))]
         for i in range(len(self.extreme_objs)):
             if (not self.extreme_objs[i]) and (not self.outlier_objs[i]):
-                plt.plot(sD[i], oD[i], "o", color='lime', label='Regular')
+                point_type_list[i] = 'Regular'
+                color_list[i] = 'lime'
             elif not self.outlier_objs[i]:
-                plt.plot(sD[i], oD[i], 'ro', label='Extreme')
+                point_type_list[i] = 'Extreme'
+                color_list[i] = 'red'
             elif not self.extreme_objs[i]:
-                plt.plot(sD[i], oD[i], 'rs', label='Outlier')
-            plt.annotate(str(i+1), (sD[i], oD[i]))
+                point_type_list[i] = 'Outlier'
+                color_list[i] = 'red'
 
-        handles, labels = plt.gca().get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        plt.legend(by_label.values(), by_label.keys())
+        plot_df = pd.DataFrame({'Sample': training_set_names, 'sD': sD, 'oD': oD,
+                                'Type': point_type_list, 'Color': color_list})
+        source = ColumnDataSource(plot_df)
+        hover = HoverTool(
+            tooltips=[
+                ('Sample: ', '@Sample')
+            ]
+        )
 
-        plt.show()
+        p = figure(title="Acceptance Plot - Training Set", width=600, height=600)
+        p.add_tools(hover)
+        p.xaxis.axis_label = "log(1 + h/h_0)"
+        p.yaxis.axis_label = "log(1 + v/v_0)"
+
+        x, y = self.border_plot(self.sd_crit, self.od_crit)
+        p.line(x, y, line_width=2, color='green')
+        x, y = self.border_plot(self.sd_out, self.od_out)
+        p.line(x, y, line_width=2, color='red')
+
+        p.scatter('sD', 'oD', size=8, source=source, color='Color', alpha=0.5)
+        return p
 
     def extreme_plot(self):
         oD = [0 for _ in range(len(self.od))]
@@ -271,13 +291,6 @@ class DDSimca:
         self.external_objs_test = extr_vector_pred
 
     def pred_acceptance_plot(self):
-        plt.title("Acceptance Plot - Test Set")
-        plt.xlabel("log(1 + h/h_0)")
-        plt.ylabel("log(1 + v/v_0)")
-
-        x, y = self.border_plot(self.sd_crit, self.od_crit)
-        plt.plot(x, y, 'g')
-
         oD = [0 for _ in range(len(self.od_test))]
         sD = [0 for _ in range(len(self.sd_test))]
 
@@ -286,18 +299,39 @@ class DDSimca:
         for i in range(len(self.sd_test)):
             sD[i] = self.transform_(self.sd_test[i] / self.sd_mean)
 
+        self.test_set.reset_index(drop=False, inplace=True)
+        test_set_names = list(self.test_set['Sample'])
+        self.test_set.set_index('Sample', inplace=True)
+
+        point_type_list = [None for _ in range(len(self.external_objs_test))]
+        color_list = [None for _ in range(len(self.external_objs_test))]
         for i in range(len(self.external_objs_test)):
             if not self.external_objs_test[i]:
-                plt.plot(sD[i], oD[i], "o", color='lime', label='Regular')
+                point_type_list[i] = 'Regular'
+                color_list[i] = 'lime'
             else:
-                plt.plot(sD[i], oD[i], 'rs', label='Extreme')
-            plt.annotate(str(i+1), (sD[i], oD[i]))
+                point_type_list[i] = 'Extreme'
+                color_list[i] = 'red'
 
-        handles, labels = plt.gca().get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        plt.legend(by_label.values(), by_label.keys())
+        plot_df = pd.DataFrame({'Sample': test_set_names, 'sD': sD, 'oD': oD,
+                                'Type': point_type_list, 'Color': color_list})
+        source = ColumnDataSource(plot_df)
+        hover = HoverTool(
+            tooltips=[
+                ('Sample: ', '@Sample')
+            ]
+        )
 
-        plt.show()
+        p = figure(title="Acceptance Plot - Test Set", width=600, height=600)
+        p.add_tools(hover)
+        p.xaxis.axis_label = "log(1 + h/h_0)"
+        p.yaxis.axis_label = "log(1 + v/v_0)"
+
+        x, y = self.border_plot(self.sd_crit, self.od_crit)
+        p.line(x, y, line_width=2, color='green')
+
+        p.scatter('sD', 'oD', size=8, source=source, color='Color', alpha=0.5)
+        return p
 
     def confusion_matrix(self, plot_cm='off', print_metrics='on'):
         cm_pred = list(~np.array(self.external_objs_test))
@@ -322,3 +356,4 @@ class DDSimca:
         if print_metrics == 'on':
             print("Accuracy:", self.metrics_list[0], "\nPrecision:", self.metrics_list[1], "\nSensitivity Recall:", self.metrics_list[2],
                    "\nSpecificity:", self.metrics_list[3], "\nF1_score:", self.metrics_list[4])
+        return self.metrics_list
