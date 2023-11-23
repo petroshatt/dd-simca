@@ -5,14 +5,22 @@ from bokeh.models import ColumnDataSource, LabelSet, HoverTool
 from bokeh.plotting import figure, show
 import numpy as np
 import math
+import functools
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from scipy.stats.distributions import chi2
 
-
 plots = []
+
+
+def conjunction(conditions):
+    return functools.reduce(np.logical_and, conditions)
+
+
+def disjunction(conditions):
+    return functools.reduce(np.logical_or, conditions)
 
 
 class DDSimca:
@@ -53,24 +61,27 @@ class DDSimca:
     def preprocessing(self, X, centering=True, scaling=True):
         self.training_set = X
         if centering:
-            X = X.apply(lambda x: x-x.mean())
+            X = X.apply(lambda x: x - x.mean())
         if scaling:
             temp = np.std(X)
             X = np.subtract(X, np.mean(X))
             X = np.divide(X, temp)
         return X
 
-    def train_test_split(self, df, class_name, target_class):
-        X_target_cl = df[df[class_name] == target_class]
-        y_target_cl = df[class_name][df[class_name] == target_class]
+    def train_test_split(self, df, filters):
+        X_target_cl = df[conjunction(filters)]
+        X_target_cl = X_target_cl.iloc[:, 2:]
+        X_target_cl.insert(loc=0, column='Class', value=1)
+        y_target_cl = X_target_cl['Class']
 
-        X_other_cl = df[~(df[class_name] == target_class)]
-        y_other_cl = df[class_name][~(df[class_name] == target_class)]
+        X_other_cl = df[~(conjunction(filters))]
+        X_other_cl = X_other_cl.iloc[:, 2:]
+        X_other_cl.insert(loc=0, column='Class', value=0)
+        y_other_cl = X_other_cl['Class']
 
         X_train, X_test_target_cl, y_train, y_test_target_cl = train_test_split(X_target_cl, y_target_cl, test_size=0.2)
-        _, X_test_other_cl, _, y_test_other_cl = train_test_split(X_other_cl, y_other_cl, test_size=0.2)
-        X_test = pd.concat([X_test_target_cl, X_test_other_cl])
-        y_test = pd.concat([y_test_target_cl, y_test_other_cl])
+        X_test = pd.concat([X_test_target_cl, X_other_cl])
+        y_test = pd.concat([y_test_target_cl, y_other_cl])
 
         return X_train, X_test, y_train, y_test
 
@@ -244,7 +255,7 @@ class DDSimca:
         Nc = Nh + Nv
         I = len(c)
 
-        n = list(range(1, I+1))
+        n = list(range(1, I + 1))
         alpha = np.divide(n, I)
 
         '''
@@ -354,6 +365,7 @@ class DDSimca:
         self.metrics_list.append(metrics.f1_score(cm_actual, cm_pred))
 
         if print_metrics == 'on':
-            print("Accuracy:", self.metrics_list[0], "\nPrecision:", self.metrics_list[1], "\nSensitivity Recall:", self.metrics_list[2],
-                   "\nSpecificity:", self.metrics_list[3], "\nF1_score:", self.metrics_list[4])
+            print("Accuracy:", self.metrics_list[0], "\nPrecision:", self.metrics_list[1], "\nSensitivity Recall:",
+                  self.metrics_list[2],
+                  "\nSpecificity:", self.metrics_list[3], "\nF1_score:", self.metrics_list[4])
         return self.metrics_list
