@@ -8,7 +8,7 @@ import math
 import functools
 
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn import metrics
 from scipy.stats.distributions import chi2
 
@@ -83,7 +83,37 @@ class DDSimca:
         X_test = pd.concat([X_test_target_cl, X_other_cl])
         y_test = pd.concat([y_test_target_cl, y_other_cl])
 
+        print(X_train)
+        print(X_test)
+
         return X_train, X_test, y_train, y_test
+
+    def kfold_train_test_split(self, df, filters):
+        X_target_cl = df[conjunction(filters)]
+        X_target_cl = X_target_cl.iloc[:, 2:]
+        X_target_cl.insert(loc=0, column='Class', value=1)
+        y_target_cl = X_target_cl['Class']
+
+        X_other_cl = df[~(conjunction(filters))]
+        X_other_cl = X_other_cl.iloc[:, 2:]
+        X_other_cl.insert(loc=0, column='Class', value=0)
+        y_other_cl = X_other_cl['Class']
+
+        dfs = []
+
+        kf = KFold(n_splits=5, shuffle=True)
+        for X_train_indices, X_test_target_cl_indices in kf.split(X_target_cl):
+            X_train = X_target_cl.iloc[X_train_indices, :]
+            y_train = X_train['Class']
+            X_test_target_cl = X_target_cl.iloc[X_test_target_cl_indices, :]
+            y_test_target_cl = X_test_target_cl['Class']
+
+            X_test = pd.concat([X_test_target_cl, X_other_cl])
+            y_test = pd.concat([y_test_target_cl, y_other_cl])
+
+            dfs.append([X_train, y_train, X_test, y_test])
+        return dfs
+
 
     def export_csvs(self, X_train, X_test, y_train, y_test):
         X_train.to_csv('X_train.csv')

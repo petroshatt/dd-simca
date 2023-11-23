@@ -18,18 +18,23 @@ if __name__ == '__main__':
     df = df.drop(df.loc[:, '1802.15':'4000.12'].columns, axis=1)
     df.set_index('Sample', inplace=True)
 
-    ddsimca = DDSimca(ncomps=5, alpha=0.05, gamma=0.05)
     filters = [(df['Botanical'] == 1), (df['Geographical'] == 2)]
-    for i in range(1):
+    for i in range(5):
         print(f"ITERATION {i+1}")
-        X_train, X_test, y_train, y_test = ddsimca.train_test_split(df, filters)
-        ddsimca.fit(X_train)
-        ddsimca.predict(X_test)
-        metrics.loc[len(metrics)] = ddsimca.confusion_matrix(print_metrics='off')
+        iter_metrics = pd.DataFrame(columns=['Accuracy', 'Precision', 'Sensitivity', 'Specificity', 'F1_score'])
 
-        plots.append(ddsimca.acceptance_plot())
-        plots.append(ddsimca.pred_acceptance_plot())
-        show(row(plots))
+        ddsimca = DDSimca(ncomps=5, alpha=0.05, gamma=0.05)
+        dfs = ddsimca.kfold_train_test_split(df, filters)
+        for fold in dfs:
+            X_train, y_train, X_test, y_test = fold
+            ddsimca.fit(X_train)
+            ddsimca.predict(X_test)
+            iter_metrics.loc[len(iter_metrics)] = ddsimca.confusion_matrix(print_metrics='off')
+
+            # plots.append(ddsimca.acceptance_plot())
+            # plots.append(ddsimca.pred_acceptance_plot())
+            # show(row(plots))
+        metrics.loc[len(metrics)] = iter_metrics.mean()
     print(metrics)
     print(metrics.mean())
 
