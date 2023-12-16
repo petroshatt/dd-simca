@@ -40,3 +40,4 @@ if __name__ == '__main__':
         metrics.loc[len(metrics)] = iter_metrics.mean()
     print(metrics)
     print(metrics.mean())
+

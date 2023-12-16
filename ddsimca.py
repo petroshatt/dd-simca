@@ -400,3 +400,4 @@ class DDSimca:
                   self.metrics_list[2],
                   "\nSpecificity:", self.metrics_list[3], "\nF1_score:", self.metrics_list[4])
         return self.metrics_list
+
