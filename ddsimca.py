@@ -99,8 +99,9 @@ class DDSimca:
         X_other_cl.insert(loc=0, column='Class', value=0)
         y_other_cl = X_other_cl['Class']
 
-        dfs = []
+        # _, X_test_other_cl, _, y_test_other_cl = train_test_split(X_other_cl, y_other_cl, test_size=0.2)
 
+        dfs = []
         kf = KFold(n_splits=5, shuffle=True)
         for X_train_indices, X_test_target_cl_indices in kf.split(X_target_cl):
             X_train = X_target_cl.iloc[X_train_indices, :]
@@ -349,10 +350,10 @@ class DDSimca:
         for i in range(len(self.external_objs_test)):
             if not self.external_objs_test[i]:
                 point_type_list[i] = 'Regular'
-                color_list[i] = 'lime'
+                color_list[i] = 'lime' if self.test_set_labels.iloc[i] == 1 else 'red'
             else:
                 point_type_list[i] = 'Extreme'
-                color_list[i] = 'red'
+                color_list[i] = 'lime' if self.test_set_labels.iloc[i] == 0 else 'red'
 
         plot_df = pd.DataFrame({'Sample': test_set_names, 'sD': sD, 'oD': oD,
                                 'Type': point_type_list, 'Color': color_list})
